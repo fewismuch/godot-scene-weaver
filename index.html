@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Atlas Object Editor</title>
+<link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+<div class="app">
+  <div class="toolbar">
+    <div class="brand"><div class="logo">A</div><div class="name">Atlas Editor</div></div>
+    <div class="group">
+      <button id="imgBtn">打开图片</button><input id="imgFile" type="file" accept="image/*" hidden>
+      <button id="jsonBtn">加载 JSON</button><input id="jsonFile" type="file" accept=".json,application/json" hidden>
+      <button id="segBtn" disabled>自动分割</button>
+    </div>
+    <span class="sep"></span>
+    <div class="group">
+      <button id="undoBtn" disabled title="撤销">撤销</button>
+      <button id="redoBtn" disabled title="重做">重做</button>
+    </div>
+    <span class="sep"></span>
+    <div class="group">
+      <button id="exportBtn" class="primary">导出 JSON</button>
+    </div>
+    <span class="sep"></span>
+    <div class="group">
+      <button id="zoomOut">−</button><span id="zoomText">200%</span><button id="zoomIn">＋</button>
+      <button id="fitBtn">适应</button>
+    </div>
+    <span class="sep"></span>
+    <div class="group">
+      <button id="mergeBtn" disabled>合并</button>
+      <button id="deleteBtn">删除</button>
+    </div>
+  </div>
+  <div class="main">
+    <aside class="left">
+      <div class="list-head">
+        <input id="search" placeholder="搜索名称 / 描述…">
+        <button id="sortBtn">名称↑</button>
+      </div>
+      <div id="listMeta" class="list-meta">0 个区域</div>
+      <div id="list" class="object-list"></div>
+    </aside>
+    <section class="center">
+      <div id="canvasWrap" class="canvas-wrap">
+        <div id="drop"><div class="inner"><strong>拖放文件到此处</strong>支持 PNG / JPG / JSON</div></div>
+        <div id="progress"><div class="spinner"></div><div class="msg" id="progressMsg">正在处理…</div></div>
+        <div id="stage">
+          <img id="atlas" alt="">
+          <div id="overlay" class="overlay"></div>
+          <div id="drawRect" class="crosshair"></div>
+        </div>
+      </div>
+      <div class="status">
+        <span id="imageInfo">未加载图片</span>
+        <span id="cursorInfo" class="mono"></span>
+        <span id="selectionInfo"></span>
+      </div>
+    </section>
+    <aside class="right">
+      <div class="head">属性面板 <span id="dirty" class="badge" style="display:none">未保存</span></div>
+      <div id="noSelection" class="hint" style="margin-bottom:10px">
+        单击选中；<b>双击</b>编辑碰撞。<span class="kbd">Shift+单击</span> 追加多选，<b>拖拽空白</b>框选多选。
+      </div>
+      <div id="multiHint" class="hint" style="display:none;margin-bottom:10px">
+        已选中 <b id="multiCount">0</b> 个区域，可点「合并」。
+      </div>
+      <div id="editor" style="display:none">
+        <details class="fold" open>
+          <summary>基本信息</summary>
+          <div class="fold-body">
+            <div class="field"><label>ID</label><input id="id" class="readonly" readonly tabindex="-1"></div>
+            <div class="field"><label>Name</label><input id="name"></div>
+            <div class="field"><label>描述</label><textarea id="description" rows="2"></textarea></div>
+            <div class="field"><label>备注</label><textarea id="notes" rows="2" placeholder="可选"></textarea></div>
+          </div>
+        </details>
+        <details class="fold" open>
+          <summary>Atlas Region <span class="tag">贴图裁剪</span></summary>
+          <div class="fold-body">
+            <div class="field"><label>位置 · 尺寸（px）</label>
+              <div class="row"><input id="x" type="number" title="x"><input id="y" type="number" title="y"></div>
+              <div class="row" style="margin-top:6px"><input id="w" type="number" min="1" title="w"><input id="h" type="number" min="1" title="h"></div>
+            </div>
+          </div>
+        </details>
+        <details class="fold">
+          <summary>场景放置</summary>
+          <div class="fold-body">
+            <div class="field"><label>Grid Size（格）</label>
+              <div class="row"><input id="gw" type="number" min="1"><input id="gh" type="number" min="1"></div>
+              <div class="help">由碰撞体积 + 网格单元推算，可手动覆盖</div>
+            </div>
+            <div class="field"><label>Anchor（0~1）</label>
+              <div class="row"><input id="ax" type="number" step=".05" min="0" max="1"><input id="ay" type="number" step=".05" min="0" max="1"></div>
+            </div>
+          </div>
+        </details>
+        <details class="fold" open>
+          <summary>CollisionShape2D</summary>
+          <div class="fold-body">
+            <div class="field"><label>Shape 类型</label>
+              <select id="shapeType">
+                <option value="RectangleShape2D">RectangleShape2D</option>
+                <option value="CircleShape2D">CircleShape2D</option>
+                <option value="CapsuleShape2D">CapsuleShape2D</option>
+              </select>
+            </div>
+            <div class="field"><label>Position（Region 内中心）</label>
+              <div class="row"><input id="spx" type="number"><input id="spy" type="number"></div>
+            </div>
+            <div id="shapeRectFields">
+              <div class="field"><label>Size（px）</label><div class="row"><input id="sw" type="number" min="1"><input id="sh" type="number" min="1"></div></div>
+            </div>
+            <div id="shapeCircleFields" style="display:none">
+              <div class="field"><label>Radius（px）</label><input id="sr" type="number" min="1"></div>
+            </div>
+            <div id="shapeCapsuleFields" style="display:none">
+              <div class="field"><label>Capsule radius / height</label>
+                <div class="row"><input id="cr" type="number" min="1" title="radius"><input id="cht" type="number" min="1" title="height"></div>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button id="regenCollisionBtn" type="button">重新生成</button>
+              <button id="clearCollisionBtn" type="button">清除</button>
+            </div>
+          </div>
+        </details>
+        <button id="applyBtn" class="primary panel-actions" style="width:100%">应用修改</button>
+      </div>
+      <details class="fold" style="margin-top:12px">
+        <summary>分割设置</summary>
+        <div class="fold-body">
+          <div class="field"><label>最小像素面积</label><input id="minArea" type="number" min="1" value="16"></div>
+          <div class="field"><label>背景容差</label><input id="bgTolerance" type="number" min="0" max="64" value="8"></div>
+          <div class="field"><label>网格单元（px）</label><input id="cellSize" type="number" min="1" value="16"></div>
+        </div>
+      </details>
+      <div class="hint" style="margin-top:12px">
+        <b>快捷键</b><br>
+        <span class="kbd">双击</span> 编辑碰撞 &nbsp;
+        <span class="kbd">拖拽</span> 框选多选<br>
+        <span class="kbd">Shift+单击</span> 追加 &nbsp;
+        <span class="kbd">Esc</span> 退出编辑<br>
+        <span class="kbd">Ctrl/Cmd+Z/Y</span> 撤销重做 &nbsp;
+        <span class="kbd">Ctrl/Cmd+S</span> 导出
+      </div>
+    </aside>
+  </div>
+</div>
+<div id="ctxMenu">
+  <button id="ctxMerge" style="display:none">合并选中区域</button>
+  <button id="ctxEdit">编辑碰撞</button>
+  <button id="ctxCollision">添加碰撞体积</button>
+  <button id="ctxCollisionDel">删除碰撞体积</button>
+  <div class="sep"></div>
+  <button id="ctxDelete" class="danger">删除</button>
+</div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

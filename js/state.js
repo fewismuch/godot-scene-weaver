@@ -1,0 +1,16 @@
+export const state = {
+  img: null,
+  imgData: null,
+  imageName: "",
+  objects: [],
+  zoom: 2,
+  dirty: false,
+  sortAsc: true,
+  selected: new Set(),
+  primary: -1,
+  editingIndex: -1,
+  interaction: null,
+  history: [],
+  historyIndex: -1,
+  lastCursorText: "",
+};
