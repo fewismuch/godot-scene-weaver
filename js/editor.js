@@ -1,7 +1,7 @@
 import { $ } from "./dom.js";
 import { SHAPE_RECT, SHAPE_CIRCLE, SHAPE_CAPSULE } from "./constants.js";
 import { state } from "./state.js";
-import { clamp, markDirty } from "./utils.js";
+import { markDirty } from "./utils.js";
 import { pushHistory } from "./history.js";
 import { rectOf, setRect, clampCollisionToRegion, gridFromCollision, regenerateCollisionForShape } from "./model.js";
 import { current } from "./selection.js";
@@ -20,8 +20,6 @@ export function apply() {
   o.name = newName;
   o.description = $("description").value;
   setRect(o, { x: +$("x").value, y: +$("y").value, w: Math.max(1, +$("w").value), h: Math.max(1, +$("h").value) });
-  o.grid_size = [Math.max(1, +$("gw").value), Math.max(1, +$("gh").value)];
-  o.anchor = [clamp(+$("ax").value, 0, 1), clamp(+$("ay").value, 0, 1)];
   const r = rectOf(o), spx = $("spx").value, spy = $("spy").value;
   if (spx === "" || spy === "") {
     o.collision = null;

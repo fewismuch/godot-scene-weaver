@@ -242,7 +242,10 @@ export function computeTopDownCollision(o) {
       }
     }
   }
-  if (minX === Infinity) return { shape: SHAPE_RECT, position: [r.w / 2, r.h - 1], size: [r.w, 1] };
+  if (minX === Infinity) {
+    const fh = Math.max(2, Math.floor(r.h * .25)), fw = Math.max(2, Math.floor(r.w * .6));
+    return { shape: SHAPE_RECT, position: [r.w / 2, r.h - fh / 2], size: [fw, fh] };
+  }
   let w = maxX - minX + 1, h = maxY - minY + 1;
   if (footRows <= 1 && h < Math.max(2, Math.floor(r.h * .2))) {
     h = Math.min(r.h, Math.max(h, Math.floor(r.h * .25)));

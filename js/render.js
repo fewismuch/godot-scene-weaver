@@ -155,10 +155,6 @@ export function showSelected() {
   $("y").value = r.y;
   $("w").value = r.w;
   $("h").value = r.h;
-  $("gw").value = o.grid_size[0];
-  $("gh").value = o.grid_size[1];
-  $("ax").value = o.anchor[0];
-  $("ay").value = o.anchor[1];
   syncShapeFields();
   $("notes").value = o.notes || "";
   updateStatus();
@@ -176,8 +172,6 @@ export function syncEditorFields() {
   const o = current();
   if (!o || state.selected.size > 1) return;
   syncShapeFields();
-  $("gw").value = o.grid_size[0];
-  $("gh").value = o.grid_size[1];
   updateStatus();
 }
 

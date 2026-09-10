@@ -27,11 +27,12 @@ function applyCollisionMove(p) {
 
 function applyCollisionResize(p) {
   const o = state.objects[state.interaction.index], h = state.interaction.handle, orig = state.interaction.origAABB;
+  const lx = p.x - state.interaction.ox, ly = p.y - state.interaction.oy;
   let x1 = orig.x, y1 = orig.y, x2 = orig.x + orig.w, y2 = orig.y + orig.h;
-  if (h.includes("w")) x1 = p.x;
-  if (h.includes("e")) x2 = p.x;
-  if (h.includes("n")) y1 = p.y;
-  if (h.includes("s")) y2 = p.y;
+  if (h.includes("w")) x1 = lx;
+  if (h.includes("e")) x2 = lx;
+  if (h.includes("n")) y1 = ly;
+  if (h.includes("s")) y2 = ly;
   if (x2 - x1 < 1) { if (h.includes("w")) x1 = x2 - 1; else x2 = x1 + 1; }
   if (y2 - y1 < 1) { if (h.includes("n")) y1 = y2 - 1; else y2 = y1 + 1; }
   const a = clampAABB({ x: Math.min(x1, x2), y: Math.min(y1, y2), w: Math.abs(x2 - x1), h: Math.abs(y2 - y1) }, 0, 0, state.interaction.rw, state.interaction.rh);
@@ -62,7 +63,7 @@ function onOverlayMouseDown(e) {
     if (i !== state.editingIndex) return;
     const o = state.objects[i], r = rectOf(o);
     state.interaction = {
-      type: "collisionResize", index: i, rw: r.w, rh: r.h,
+      type: "collisionResize", index: i, rw: r.w, rh: r.h, ox: r.x, oy: r.y,
       handle: handle.dataset.handle, startX: pointerPos(e).x, startY: pointerPos(e).y,
       origAABB: collisionAABB(o.collision),
     };
@@ -182,7 +183,7 @@ export function bindEvents() {
   });
 
   $("applyBtn").onclick = apply;
-  ["description", "x", "y", "w", "h", "gw", "gh", "ax", "ay", "shapeType", "spx", "spy", "sw", "sh", "sr", "cr", "cht", "notes"]
+  ["description", "x", "y", "w", "h", "shapeType", "spx", "spy", "sw", "sh", "sr", "cr", "cht", "notes"]
     .forEach(id => $(id).addEventListener("input", () => markDirty()));
   $("name").addEventListener("input", () => { markDirty(); updateNameValidation(); });
   $("shapeType").addEventListener("change", applyCollisionRegen);
