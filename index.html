@@ -22,7 +22,8 @@
     </div>
     <span class="sep"></span>
     <div class="group">
-      <button id="exportBtn" class="primary">导出 JSON</button>
+      <button id="exportBtn">导出 JSON</button>
+      <button id="exportGodotBtn" class="primary">导出 Godot 场景</button>
     </div>
     <span class="sep"></span>
     <div class="group">
@@ -73,7 +74,7 @@
           <summary>基本信息</summary>
           <div class="fold-body">
             <div class="field"><label>ID</label><input id="id" class="readonly" readonly tabindex="-1"></div>
-            <div class="field"><label>Name</label><input id="name"></div>
+            <div class="field"><label>Name</label><input id="name"><div id="nameError" class="field-error" style="display:none"></div></div>
             <div class="field"><label>描述</label><textarea id="description" rows="2"></textarea></div>
             <div class="field"><label>备注</label><textarea id="notes" rows="2" placeholder="可选"></textarea></div>
           </div>
@@ -146,7 +147,8 @@
         <span class="kbd">Shift+单击</span> 追加 &nbsp;
         <span class="kbd">Esc</span> 退出编辑<br>
         <span class="kbd">Ctrl/Cmd+Z/Y</span> 撤销重做 &nbsp;
-        <span class="kbd">Ctrl/Cmd+S</span> 导出
+        <span class="kbd">Ctrl/Cmd+S</span> 导出 JSON &nbsp;
+        <span class="kbd">Ctrl/Cmd+Shift+S</span> 导出 Godot（.tscn + 序号图）
       </div>
     </aside>
   </div>

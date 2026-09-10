@@ -5,12 +5,19 @@ import { clamp, markDirty } from "./utils.js";
 import { pushHistory } from "./history.js";
 import { rectOf, setRect, clampCollisionToRegion, gridFromCollision, regenerateCollisionForShape } from "./model.js";
 import { current } from "./selection.js";
-import { render, showSelected } from "./render.js";
+import { render, showSelected, updateNameValidation } from "./render.js";
+import { findNameConflict } from "./validation.js";
 
 export function apply() {
   const o = current();
   if (!o) return;
-  o.name = $("name").value.trim() || o.id;
+  const newName = $("name").value.trim() || o.id;
+  const conflict = findNameConflict(newName, state.primary);
+  if (conflict >= 0) {
+    updateNameValidation(newName);
+    return;
+  }
+  o.name = newName;
   o.description = $("description").value;
   setRect(o, { x: +$("x").value, y: +$("y").value, w: Math.max(1, +$("w").value), h: Math.max(1, +$("h").value) });
   o.grid_size = [Math.max(1, +$("gw").value), Math.max(1, +$("gh").value)];

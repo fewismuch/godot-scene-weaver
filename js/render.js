@@ -2,6 +2,7 @@ import { $ } from "./dom.js";
 import { HANDLES, SHAPE_RECT, SHAPE_CIRCLE, SHAPE_CAPSULE } from "./constants.js";
 import { state } from "./state.js";
 import { clamp, esc, displayName } from "./utils.js";
+import { findNameConflict } from "./validation.js";
 import { rectOf, applyCollisionDOM, collisionSummary } from "./model.js";
 import { updateMergeButton, current, toggleSelect, selectSingle } from "./selection.js";
 
@@ -148,6 +149,7 @@ export function showSelected() {
   const r = rectOf(o);
   $("id").value = o.id;
   $("name").value = o.name || o.id;
+  updateNameValidation(o.name || o.id);
   $("description").value = o.description;
   $("x").value = r.x;
   $("y").value = r.y;
@@ -177,6 +179,23 @@ export function syncEditorFields() {
   $("gw").value = o.grid_size[0];
   $("gh").value = o.grid_size[1];
   updateStatus();
+}
+
+export function updateNameValidation(name) {
+  const input = $("name");
+  const hint = $("nameError");
+  if (!input || !hint) return true;
+  const conflict = findNameConflict((name ?? input.value).trim() || current()?.id, state.primary);
+  if (conflict >= 0) {
+    input.classList.add("invalid");
+    hint.textContent = `名称重复：已被区域 #${conflict + 1}（${displayName(state.objects[conflict])}）使用`;
+    hint.style.display = "block";
+    return false;
+  }
+  input.classList.remove("invalid");
+  hint.textContent = "";
+  hint.style.display = "none";
+  return true;
 }
 
 export function renderCollisionOnly() {

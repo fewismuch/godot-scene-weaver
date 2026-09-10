@@ -10,9 +10,10 @@ import {
   selectSingle, toggleSelect, mergeSelected, deleteSelected,
   enterCollisionEdit, finishMarquee, addCollisionSelected, deleteCollisionSelected, current,
 } from "./selection.js";
-import { render, renderList, showSelected, setZoom, fit, setCursorInfo, syncEditorFields, renderCollisionOnly } from "./render.js";
+import { render, renderList, showSelected, setZoom, fit, setCursorInfo, syncEditorFields, renderCollisionOnly, updateNameValidation } from "./render.js";
 import { apply, applyCollisionRegen, clearCollision } from "./editor.js";
 import { loadImageFile, loadJSON, exportJSON } from "./io.js";
+import { exportGodotScene } from "./godot-export.js";
 import { autoSegment } from "./segment.js";
 
 function applyCollisionMove(p) {
@@ -174,14 +175,16 @@ export function bindEvents() {
       state.interaction = null;
     }
     if (e.key === "Delete" && state.selected.size && !["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName)) deleteSelected();
-    if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); exportJSON(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === "s" && e.shiftKey) { e.preventDefault(); exportGodotScene(); }
+    else if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); exportJSON(); }
     if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
     if ((e.ctrlKey || e.metaKey) && (e.key === "y" || (e.key === "z" && e.shiftKey))) { e.preventDefault(); redo(); }
   });
 
   $("applyBtn").onclick = apply;
-  ["name", "description", "x", "y", "w", "h", "gw", "gh", "ax", "ay", "shapeType", "spx", "spy", "sw", "sh", "sr", "cr", "cht", "notes"]
+  ["description", "x", "y", "w", "h", "gw", "gh", "ax", "ay", "shapeType", "spx", "spy", "sw", "sh", "sr", "cr", "cht", "notes"]
     .forEach(id => $(id).addEventListener("input", () => markDirty()));
+  $("name").addEventListener("input", () => { markDirty(); updateNameValidation(); });
   $("shapeType").addEventListener("change", applyCollisionRegen);
   $("regenCollisionBtn").onclick = applyCollisionRegen;
   $("clearCollisionBtn").onclick = clearCollision;
@@ -201,6 +204,7 @@ export function bindEvents() {
   $("redoBtn").onclick = redo;
   $("mergeBtn").onclick = mergeSelected;
   $("exportBtn").onclick = exportJSON;
+  $("exportGodotBtn").onclick = exportGodotScene;
   $("deleteBtn").onclick = deleteSelected;
   $("search").oninput = renderList;
   $("sortBtn").onclick = () => { $("sortBtn").textContent = (state.sortAsc = !state.sortAsc) ? "名称↑" : "名称↓"; renderList(); };
