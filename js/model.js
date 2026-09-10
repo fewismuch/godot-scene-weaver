@@ -45,34 +45,52 @@ export function collisionAABB(c) {
   if (!c) return null;
   if (c.shape === SHAPE_CIRCLE) {
     const r = Math.max(1, c.radius || 1);
-    return { x: c.position[0] - r, y: c.position[1] - r, w: r * 2, h: r * 2 };
+    const cx = c.position[0], cy = c.position[1];
+    const x0 = Math.floor(cx - r), y0 = Math.floor(cy - r);
+    const x1 = Math.ceil(cx + r), y1 = Math.ceil(cy + r);
+    return { x: x0, y: y0, w: Math.max(1, x1 - x0), h: Math.max(1, y1 - y0) };
   }
   const w = Math.max(1, c.size?.[0] || 1), h = Math.max(1, c.size?.[1] || 1);
-  return { x: c.position[0] - w / 2, y: c.position[1] - h / 2, w, h };
+  const cx = c.position[0], cy = c.position[1];
+  const x0 = Math.floor(cx - w / 2), y0 = Math.floor(cy - h / 2);
+  const x1 = Math.ceil(cx + w / 2), y1 = Math.ceil(cy + h / 2);
+  return { x: x0, y: y0, w: Math.max(1, x1 - x0), h: Math.max(1, y1 - y0) };
+}
+
+function aabbWithinRegion(a, rw, rh) {
+  return a.x >= 0 && a.y >= 0 && a.x + a.w <= rw && a.y + a.h <= rh;
 }
 
 export function setCollisionFromAABB(c, a) {
-  const cx = a.x + a.w / 2, cy = a.y + a.h / 2;
-  c.position = [Math.round(cx), Math.round(cy)];
+  const x0 = Math.round(a.x);
+  const y0 = Math.round(a.y);
+  const x1 = Math.round(a.x + a.w);
+  const y1 = Math.round(a.y + a.h);
+  const w = Math.max(1, x1 - x0);
+  const h = Math.max(1, y1 - y0);
+  c.position = [x0 + w / 2, y0 + h / 2];
   if (c.shape === SHAPE_CIRCLE) {
-    c.radius = Math.max(1, Math.round(Math.min(a.w, a.h) / 2));
+    c.radius = Math.max(1, Math.min(Math.floor(w / 2), Math.floor(h / 2)));
     delete c.size;
     delete c.height;
   } else if (c.shape === SHAPE_CAPSULE) {
-    c.size = [Math.max(2, Math.round(a.w)), Math.max(2, Math.round(a.h))];
-    c.radius = Math.max(1, Math.round(Math.min(c.size[0], c.size[1]) / 2));
-    c.height = Math.max(c.radius * 2, Math.round(c.size[1]));
+    c.size = [w, h];
+    c.radius = Math.max(1, Math.min(Math.floor(w / 2), Math.floor(h / 2)));
+    c.height = h;
   } else {
-    c.size = [Math.max(1, Math.round(a.w)), Math.max(1, Math.round(a.h))];
+    c.size = [w, h];
     delete c.radius;
     delete c.height;
   }
 }
 
 export function clampCollisionToRegion(c, rw, rh) {
-  if (!c) return;
-  const a = clampAABB(collisionAABB(c), 0, 0, rw, rh);
-  setCollisionFromAABB(c, a);
+  if (!c || rw <= 0 || rh <= 0) return;
+  for (let i = 0; i < 4; i++) {
+    const a = clampAABB(collisionAABB(c), 0, 0, rw, rh);
+    setCollisionFromAABB(c, a);
+    if (aabbWithinRegion(collisionAABB(c), rw, rh)) return;
+  }
 }
 
 export function normalizeCollision(raw, rw, rh) {
