@@ -5,10 +5,12 @@ import { normalize } from "./model.js";
 import { resetHistory } from "./history.js";
 import { autoSegment } from "./segment.js";
 import { render, showSelected, fit } from "./render.js";
+import { syncGodotAtlasPath } from "./godot-export.js";
 
 export function loadJSON(data) {
   state.objects = (data.objects || []).map(normalize);
   state.imageName = data.meta?.atlas || data.meta?.image || state.imageName;
+  syncGodotAtlasPath();
   state.selected = new Set(state.objects.length ? [0] : []);
   state.primary = state.objects.length ? 0 : -1;
   state.editingIndex = -1;
@@ -20,6 +22,7 @@ export function loadJSON(data) {
 
 export function loadImageFile(file) {
   state.imageName = file.name;
+  syncGodotAtlasPath();
   const im = new Image();
   im.onload = async () => {
     state.img = im;

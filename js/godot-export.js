@@ -1,6 +1,7 @@
+import { $ } from "./dom.js";
 import { state } from "./state.js";
 import { rectOf } from "./model.js";
-import { SHAPE_RECT, SHAPE_CIRCLE, SHAPE_CAPSULE } from "./constants.js";
+import { SHAPE_CIRCLE, SHAPE_CAPSULE } from "./constants.js";
 import { effectiveName, findDuplicateNames } from "./validation.js";
 import { markDirty } from "./utils.js";
 
@@ -8,22 +9,33 @@ function basename(name) {
   return (name || "atlas").replace(/\.[^.]+$/, "");
 }
 
-function indexMarker(i) {
-  const n = i + 1;
-  if (n >= 1 && n <= 20) return String.fromCharCode(0x2460 + n - 1);
-  return `(${n})`;
+function sanitizeFilename(name) {
+  return String(name).replace(/[\\/:*?"<>|]/g, "_").trim() || "object";
 }
 
 function godotEscape(s) {
   return String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
 }
 
-function godotString(s) {
-  return `"${godotEscape(s)}"`;
+function godotNodeName(name) {
+  return godotEscape(sanitizeFilename(name)).replace(/ /g, "_");
 }
 
-function enumHintLabel(s) {
-  return String(s).replace(/\\/g, "\\\\").replace(/,/g, "\\,").replace(/:/g, "\\:");
+export function syncGodotAtlasPath() {
+  const el = $("godotAtlasPath");
+  if (!el || !state.imageName) return;
+  const cur = el.value.trim();
+  if (cur && cur !== "res://") return;
+  el.value = `res://${state.imageName}`;
+}
+
+function getGodotAtlasPath() {
+  const path = $("godotAtlasPath")?.value.trim();
+  if (!path) {
+    alert("请填写 Godot 贴图路径。");
+    return null;
+  }
+  return path;
 }
 
 function collisionToGodot(c, spriteOffset) {
@@ -32,197 +44,141 @@ function collisionToGodot(c, spriteOffset) {
   const px = ox + c.position[0], py = oy + c.position[1];
   if (c.shape === SHAPE_CIRCLE) {
     return {
-      shape: "circle",
+      shape: "CircleShape2D",
       position: `Vector2(${px}, ${py})`,
       radius: c.radius,
     };
   }
   if (c.shape === SHAPE_CAPSULE) {
     return {
-      shape: "capsule",
+      shape: "CapsuleShape2D",
       position: `Vector2(${px}, ${py})`,
       radius: c.radius,
       height: c.height,
     };
   }
   return {
-    shape: "rect",
+    shape: "RectangleShape2D",
     position: `Vector2(${px}, ${py})`,
     size: `Vector2(${c.size[0]}, ${c.size[1]})`,
   };
 }
 
-function variantEntry(o) {
+function generateObjectTscn(o, atlasPath) {
   const r = rectOf(o);
   const [ax, ay] = o.anchor;
-  const id = o.id;
   const ox = -ax * r.w, oy = -ay * r.h;
   const col = collisionToGodot(o.collision, { x: ox, y: oy });
+  const nodeName = godotNodeName(effectiveName(o));
+
   const lines = [
-    `\t${godotString(id)}: {`,
-    `\t\t"display_name": ${godotString(effectiveName(o))},`,
-    `\t\t"region": Rect2(${r.x}, ${r.y}, ${r.w}, ${r.h}),`,
-    `\t\t"sprite_offset": Vector2(${ox}, ${oy}),`,
-    `\t\t"grid_size": Vector2i(${o.grid_size[0]}, ${o.grid_size[1]}),`,
+    `[gd_scene load_steps=${col ? 4 : 3} format=3]`,
+    "",
+    `[ext_resource type="Texture2D" path="${godotEscape(atlasPath)}" id="1_atlas"]`,
+    "",
+    `[sub_resource type="AtlasTexture" id="2_tex"]`,
+    `atlas = ExtResource("1_atlas")`,
+    `region = Rect2(${r.x}, ${r.y}, ${r.w}, ${r.h})`,
   ];
+
   if (col) {
-    lines.push(`\t\t"collision": {`);
-    lines.push(`\t\t\t"shape": ${godotString(col.shape)},`);
-    lines.push(`\t\t\t"position": ${col.position},`);
-    if (col.shape === "circle") lines.push(`\t\t\t"radius": ${col.radius},`);
-    else if (col.shape === "capsule") {
-      lines.push(`\t\t\t"radius": ${col.radius},`);
-      lines.push(`\t\t\t"height": ${col.height},`);
+    lines.push("");
+    lines.push(`[sub_resource type="${col.shape}" id="3_shape"]`);
+    if (col.shape === "CircleShape2D") {
+      lines.push(`radius = ${col.radius}`);
+    } else if (col.shape === "CapsuleShape2D") {
+      lines.push(`radius = ${col.radius}`);
+      lines.push(`height = ${col.height}`);
     } else {
-      lines.push(`\t\t\t"size": ${col.size},`);
+      lines.push(`size = ${col.size}`);
     }
-    lines.push(`\t\t},`);
-  } else {
-    lines.push(`\t\t"collision": null,`);
   }
-  lines.push(`\t},`);
+
+  lines.push("");
+  lines.push(`[node name="${nodeName}" type="Node2D"]`);
+  lines.push("");
+  lines.push(`[node name="Sprite2D" type="Sprite2D" parent="."]`);
+  lines.push("centered = false");
+  lines.push(`offset = Vector2(${ox}, ${oy})`);
+  lines.push('texture = SubResource("2_tex")');
+
+  if (col) {
+    lines.push("");
+    lines.push(`[node name="StaticBody2D" type="StaticBody2D" parent="."]`);
+    lines.push("collision_layer = 1");
+    lines.push("collision_mask = 1");
+    lines.push("");
+    lines.push(`[node name="CollisionShape2D" type="CollisionShape2D" parent="StaticBody2D"]`);
+    lines.push(`position = ${col.position}`);
+    lines.push('shape = SubResource("3_shape")');
+  }
+
+  lines.push("");
   return lines.join("\n");
 }
 
-function generateScript(objects) {
-  const ids = objects.map(o => o.id);
-  const defaultId = ids[0];
-  const variants = objects.map(variantEntry).join("\n");
-  const idsArray = ids.map(godotString).join(", ");
-  const indexEnum = objects.map((o, i) => godotString(`${indexMarker(i)} ${effectiveName(o)}`)).join(", ");
-  const nameHint = objects.map(o => `${enumHintLabel(effectiveName(o))}:${enumHintLabel(o.id)}`).join(",");
-
-  return `@tool
-extends Node2D
-
-## Atlas 物件场景 — 指定 atlas 贴图后，用 sprite_name 或 variant_index 下拉切换物件。
-## sprite_name 实际值为 OBJ_xxx ID；下拉标签优先显示 Name。
-
-const VARIANT_IDS: Array[String] = [${idsArray}]
-const SPRITE_NAME_HINT := ${godotString(nameHint)}
-
-const VARIANTS: Dictionary = {
-${variants}
+function crc32(data) {
+  let crc = 0xffffffff;
+  for (let i = 0; i < data.length; i++) {
+    crc ^= data[i];
+    for (let j = 0; j < 8; j++) {
+      crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
 }
 
-const DEFAULT_ID := ${godotString(defaultId)}
+function zipStore(files) {
+  const enc = new TextEncoder();
+  const chunks = [];
+  const central = [];
+  let offset = 0;
 
-var _syncing := false
-var _sprite: Sprite2D
-var _body: StaticBody2D
-var _shape: CollisionShape2D
+  for (const file of files) {
+    const nameBytes = enc.encode(file.name);
+    const data = file.data instanceof Uint8Array ? file.data : enc.encode(file.data);
+    const checksum = crc32(data);
+    const size = data.length;
 
-@export var atlas: Texture2D:
-	set(value):
-		atlas = value
-		_update_display()
+    const localHeader = new Uint8Array(30 + nameBytes.length);
+    const view = new DataView(localHeader.buffer);
+    view.setUint32(0, 0x04034b50, true);
+    view.setUint16(4, 20, true);
+    view.setUint16(8, 0, true);
+    view.setUint32(14, checksum, true);
+    view.setUint32(18, size, true);
+    view.setUint32(22, size, true);
+    view.setUint16(26, nameBytes.length, true);
+    localHeader.set(nameBytes, 30);
 
-@export_enum(${indexEnum}) var variant_index: int = 0:
-	set(value):
-		var idx := clampi(value, 0, VARIANT_IDS.size() - 1)
-		if variant_index == idx:
-			return
-		variant_index = idx
-		if not _syncing:
-			_syncing = true
-			sprite_name = VARIANT_IDS[variant_index]
-			_syncing = false
-		_update_display()
+    chunks.push(localHeader, data);
 
-@export var sprite_name: String = DEFAULT_ID:
-	set(value):
-		if sprite_name == value:
-			return
-		sprite_name = value
-		if not _syncing:
-			_syncing = true
-			var idx := VARIANT_IDS.find(sprite_name)
-			if idx >= 0:
-				variant_index = idx
-			_syncing = false
-		_update_display()
+    const cdEntry = new Uint8Array(46 + nameBytes.length);
+    const cdView = new DataView(cdEntry.buffer);
+    cdView.setUint32(0, 0x02014b50, true);
+    cdView.setUint16(4, 20, true);
+    cdView.setUint16(6, 20, true);
+    cdView.setUint32(16, checksum, true);
+    cdView.setUint32(20, size, true);
+    cdView.setUint32(24, size, true);
+    cdView.setUint16(28, nameBytes.length, true);
+    cdView.setUint32(42, offset, true);
+    cdEntry.set(nameBytes, 46);
+    central.push(cdEntry);
 
-func _validate_property(property: Dictionary) -> void:
-	if property.name == "sprite_name":
-		property.hint = PROPERTY_HINT_ENUM
-		property.hint_string = SPRITE_NAME_HINT
+    offset += localHeader.length + data.length;
+  }
 
-func _ready() -> void:
-	_sprite = $Sprite2D
-	_body = $StaticBody2D
-	_shape = $StaticBody2D/CollisionShape2D
-	_update_display()
+  const centralSize = central.reduce((s, c) => s + c.length, 0);
+  const end = new Uint8Array(22);
+  const endView = new DataView(end.buffer);
+  endView.setUint32(0, 0x06054b50, true);
+  endView.setUint16(8, files.length, true);
+  endView.setUint16(10, files.length, true);
+  endView.setUint32(12, centralSize, true);
+  endView.setUint32(16, offset, true);
 
-func _update_display() -> void:
-	if _sprite == null:
-		return
-	var data: Dictionary = VARIANTS.get(sprite_name, VARIANTS.get(DEFAULT_ID, {}))
-	if data.is_empty():
-		push_warning("Unknown sprite_name: %s" % sprite_name)
-		return
-	if atlas == null:
-		_sprite.texture = null
-		return
-	var tex := AtlasTexture.new()
-	tex.atlas = atlas
-	tex.region = data.region
-	_sprite.texture = tex
-	_sprite.centered = false
-	_sprite.offset = data.sprite_offset
-	_apply_collision(data.get("collision"))
-
-func _apply_collision(col: Variant) -> void:
-	if _shape == null or _body == null:
-		return
-	if col == null:
-		_shape.shape = null
-		_body.collision_layer = 0
-		_body.collision_mask = 0
-		return
-	_body.collision_layer = 1
-	_body.collision_mask = 1
-	_shape.position = col.position
-	match col.shape:
-		"circle":
-			var s := CircleShape2D.new()
-			s.radius = col.radius
-			_shape.shape = s
-		"capsule":
-			var s := CapsuleShape2D.new()
-			s.radius = col.radius
-			s.height = col.height
-			_shape.shape = s
-		_:
-			var s := RectangleShape2D.new()
-			s.size = col.size
-			_shape.shape = s
-`;
-}
-
-function generateTscn(script, atlasFile, defaultId) {
-  const sceneName = basename(state.imageName);
-  const atlasPath = `res://${atlasFile}`;
-
-  return `[gd_scene load_steps=3 format=3]
-
-[ext_resource type="Texture2D" path="${atlasPath}" id="1_atlas"]
-
-[sub_resource type="GDScript" id="GDScript_atlas"]
-script/source = ${godotString(script)}
-
-[node name="${sceneName}" type="Node2D"]
-script = SubResource("GDScript_atlas")
-atlas = ExtResource("1_atlas")
-variant_index = 0
-sprite_name = ${godotString(defaultId)}
-
-[node name="Sprite2D" type="Sprite2D" parent="."]
-centered = false
-
-[node name="StaticBody2D" type="StaticBody2D" parent="."]
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="StaticBody2D"]
-`;
+  return new Blob([...chunks, ...central, end], { type: "application/zip" });
 }
 
 function downloadBlob(blob, filename) {
@@ -233,47 +189,7 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(a.href);
 }
 
-function renderIndexImage(objects) {
-  const canvas = document.createElement("canvas");
-  canvas.width = state.img.width;
-  canvas.height = state.img.height;
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(state.img, 0, 0);
-
-  const fontSize = 7;
-  ctx.font = `bold ${fontSize}px monospace`;
-  ctx.textBaseline = "bottom";
-
-  objects.forEach((o, i) => {
-    const r = rectOf(o);
-    const marker = indexMarker(i);
-    const tw = ctx.measureText(marker).width;
-
-    let x = r.x - tw - 1;
-    let y = r.y - 1;
-    if (x < 0) x = r.x + 1;
-    if (y < fontSize) y = r.y + fontSize + 1;
-
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = "rgba(0, 0, 0, 0.9)";
-    ctx.strokeText(marker, x, y);
-    ctx.fillStyle = "#ffe566";
-    ctx.fillText(marker, x, y);
-  });
-
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(blob => {
-      if (blob) resolve(blob);
-      else reject(new Error("无法生成标注图片"));
-    }, "image/png");
-  });
-}
-
-function delay(ms) {
-  return new Promise(r => setTimeout(r, ms));
-}
-
-export async function exportGodotScene() {
+export function exportGodotScene() {
   if (!state.img) {
     alert("请先加载 Atlas 图片。");
     return;
@@ -290,15 +206,17 @@ export async function exportGodotScene() {
     return;
   }
 
-  const base = basename(state.imageName);
-  const atlasFile = state.imageName || `${base}.png`;
-  const defaultId = state.objects[0].id;
-  const script = generateScript(state.objects);
-  const tscn = generateTscn(script, atlasFile, defaultId);
+  const atlasPath = getGodotAtlasPath();
+  if (!atlasPath) return;
 
-  downloadBlob(new Blob([tscn], { type: "text/plain" }), `${base}.tscn`);
-  await delay(200);
-  const indexBlob = await renderIndexImage(state.objects);
-  downloadBlob(indexBlob, `${base}_index.png`);
+  const base = basename(state.imageName);
+  const sceneDir = `${base}_scenes`;
+
+  const zipEntries = state.objects.map(o => ({
+    name: `${sceneDir}/${sanitizeFilename(effectiveName(o))}.tscn`,
+    data: generateObjectTscn(o, atlasPath),
+  }));
+
+  downloadBlob(zipStore(zipEntries), `${base}_scenes.zip`);
   markDirty(false);
 }

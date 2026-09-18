@@ -121,6 +121,12 @@
         <button id="applyBtn" class="primary panel-actions" style="width:100%">应用修改</button>
       </div>
       <details class="fold" style="margin-top:12px">
+        <summary>Godot 导出</summary>
+        <div class="fold-body">
+          <div class="field"><label>贴图路径</label><input id="godotAtlasPath" value="res://" spellcheck="false"><div class="help">写入各 .tscn 的 Texture2D 路径，导出前可修改</div></div>
+        </div>
+      </details>
+      <details class="fold" style="margin-top:12px">
         <summary>分割设置</summary>
         <div class="fold-body">
           <div class="field"><label>最小像素面积</label><input id="minArea" type="number" min="1" value="16"></div>
@@ -136,7 +142,7 @@
         <span class="kbd">Esc</span> 退出编辑<br>
         <span class="kbd">Ctrl/Cmd+Z/Y</span> 撤销重做 &nbsp;
         <span class="kbd">Ctrl/Cmd+S</span> 导出 JSON &nbsp;
-        <span class="kbd">Ctrl/Cmd+Shift+S</span> 导出 Godot（.tscn + 序号图）
+        <span class="kbd">Ctrl/Cmd+Shift+S</span> 导出 Godot（多个 .tscn）
       </div>
     </aside>
   </div>
