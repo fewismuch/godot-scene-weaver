@@ -13,6 +13,12 @@ npm run preview
 
 `npm run dev` 启动 Vite 开发服务器；`npm run build` 将编辑器和图片处理工具都打包到 `dist/`。打包结果是静态文件，可以部署到静态站点。`npm test` 运行图片处理核心测试。
 
+## GitHub Pages
+
+将代码推送到 `main` 后，`.github/workflows/pages.yml` 会运行测试、构建，并把 `dist/` 发布到 GitHub Pages。首次使用时，在仓库的 **Settings → Pages → Build and deployment → Source** 中选择 **GitHub Actions**。也可以在 **Actions → Deploy to GitHub Pages** 中手动运行工作流。
+
+部署成功后，编辑器位于 <https://fewismuch.github.io/godot-scene-weaver/>，图片处理工具位于 <https://fewismuch.github.io/godot-scene-weaver/image-tool.html>。
+
 ## 图片处理工具
 
 在编辑器顶部点击「图片处理工具」，或打开 `image-tool.html`。
