@@ -1,7 +1,7 @@
 import { $ } from "./dom.js";
 import { state } from "./state.js";
 import { rectOf } from "./model.js";
-import { SHAPE_CIRCLE, SHAPE_CAPSULE } from "./constants.js";
+import { SHAPE_CIRCLE, SHAPE_CAPSULE, SHAPE_ELLIPSE } from "./constants.js";
 import { effectiveName, findDuplicateNames } from "./validation.js";
 import { markDirty } from "./utils.js";
 import { createZip } from "./zip.js";
@@ -55,8 +55,21 @@ function collisionToGodot(c, spriteOffset) {
     return {
       shape: "CapsuleShape2D",
       position: `Vector2(${px}, ${py})`,
-      radius: c.radius,
-      height: c.height,
+      radius: c.size[0] / 2,
+      height: c.size[1],
+    };
+  }
+  if (c.shape === SHAPE_ELLIPSE) {
+    const points = Array.from({ length: 32 }, (_, i) => {
+      const angle = i * Math.PI / 16;
+      const x = +(Math.cos(angle) * c.size[0] / 2).toFixed(5);
+      const y = +(Math.sin(angle) * c.size[1] / 2).toFixed(5);
+      return `${x}, ${y}`;
+    });
+    return {
+      shape: "ConvexPolygonShape2D",
+      position: `Vector2(${px}, ${py})`,
+      points: `PackedVector2Array(${points.join(", ")})`,
     };
   }
   return {
@@ -66,11 +79,9 @@ function collisionToGodot(c, spriteOffset) {
   };
 }
 
-function generateObjectTscn(o, atlasPath) {
+export function generateObjectTscn(o, atlasPath) {
   const r = rectOf(o);
-  const [ax, ay] = o.anchor;
-  const ox = -ax * r.w, oy = -ay * r.h;
-  const col = collisionToGodot(o.collision, { x: ox, y: oy });
+  const col = collisionToGodot(o.collision, { x: -r.w / 2, y: -r.h / 2 });
   const nodeName = godotNodeName(effectiveName(o));
 
   const lines = [
@@ -91,6 +102,8 @@ function generateObjectTscn(o, atlasPath) {
     } else if (col.shape === "CapsuleShape2D") {
       lines.push(`radius = ${col.radius}`);
       lines.push(`height = ${col.height}`);
+    } else if (col.shape === "ConvexPolygonShape2D") {
+      lines.push(`points = ${col.points}`);
     } else {
       lines.push(`size = ${col.size}`);
     }
@@ -100,8 +113,7 @@ function generateObjectTscn(o, atlasPath) {
   lines.push(`[node name="${nodeName}" type="Node2D"]`);
   lines.push("");
   lines.push(`[node name="Sprite2D" type="Sprite2D" parent="."]`);
-  lines.push("centered = false");
-  lines.push(`offset = Vector2(${ox}, ${oy})`);
+  lines.push("centered = true");
   lines.push('texture = SubResource("2_tex")');
 
   if (col) {

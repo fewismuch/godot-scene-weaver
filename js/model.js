@@ -1,5 +1,5 @@
 import { $ } from "./dom.js";
-import { SHAPE_RECT, SHAPE_CIRCLE, SHAPE_CAPSULE } from "./constants.js";
+import { SHAPE_RECT, SHAPE_CIRCLE, SHAPE_CAPSULE, SHAPE_ELLIPSE } from "./constants.js";
 import { state } from "./state.js";
 import { clamp } from "./utils.js";
 
@@ -46,19 +46,11 @@ export function collisionAABB(c) {
   if (c.shape === SHAPE_CIRCLE) {
     const r = Math.max(1, c.radius || 1);
     const cx = c.position[0], cy = c.position[1];
-    const x0 = Math.floor(cx - r), y0 = Math.floor(cy - r);
-    const x1 = Math.ceil(cx + r), y1 = Math.ceil(cy + r);
-    return { x: x0, y: y0, w: Math.max(1, x1 - x0), h: Math.max(1, y1 - y0) };
+    return { x: cx - r, y: cy - r, w: 2 * r, h: 2 * r };
   }
   const w = Math.max(1, c.size?.[0] || 1), h = Math.max(1, c.size?.[1] || 1);
   const cx = c.position[0], cy = c.position[1];
-  const x0 = Math.floor(cx - w / 2), y0 = Math.floor(cy - h / 2);
-  const x1 = Math.ceil(cx + w / 2), y1 = Math.ceil(cy + h / 2);
-  return { x: x0, y: y0, w: Math.max(1, x1 - x0), h: Math.max(1, y1 - y0) };
-}
-
-function aabbWithinRegion(a, rw, rh) {
-  return a.x >= 0 && a.y >= 0 && a.x + a.w <= rw && a.y + a.h <= rh;
+  return { x: cx - w / 2, y: cy - h / 2, w, h };
 }
 
 export function setCollisionFromAABB(c, a) {
@@ -75,7 +67,7 @@ export function setCollisionFromAABB(c, a) {
     delete c.height;
   } else if (c.shape === SHAPE_CAPSULE) {
     c.size = [w, h];
-    c.radius = Math.max(1, Math.min(Math.floor(w / 2), Math.floor(h / 2)));
+    c.radius = Math.max(1, Math.min(w / 2, h / 2));
     c.height = h;
   } else {
     c.size = [w, h];
@@ -86,10 +78,18 @@ export function setCollisionFromAABB(c, a) {
 
 export function clampCollisionToRegion(c, rw, rh) {
   if (!c || rw <= 0 || rh <= 0) return;
-  for (let i = 0; i < 4; i++) {
-    const a = clampAABB(collisionAABB(c), 0, 0, rw, rh);
-    setCollisionFromAABB(c, a);
-    if (aabbWithinRegion(collisionAABB(c), rw, rh)) return;
+  if (c.shape === SHAPE_CIRCLE) {
+    c.radius = Math.min(Math.max(1, c.radius), rw / 2, rh / 2);
+    c.position = [clamp(c.position[0], c.radius, rw - c.radius), clamp(c.position[1], c.radius, rh - c.radius)];
+  } else {
+    const w = Math.min(Math.max(1, c.size[0]), rw);
+    const h = Math.min(Math.max(1, c.size[1]), rh);
+    c.size = [c.shape === SHAPE_CAPSULE ? Math.min(w, h) : w, h];
+    c.position = [clamp(c.position[0], c.size[0] / 2, rw - c.size[0] / 2), clamp(c.position[1], h / 2, rh - h / 2)];
+    if (c.shape === SHAPE_CAPSULE) {
+      c.radius = c.size[0] / 2;
+      c.height = h;
+    }
   }
 }
 
@@ -136,6 +136,8 @@ export function shapeToCollision(base, shape, rw, rh) {
   } else if (shape === SHAPE_CAPSULE) {
     const rad = Math.max(1, Math.round(Math.min(bw, bh) / 2));
     c = { shape, position: [bx, by], size: [bw, bh], radius: rad, height: Math.max(rad * 2, bh) };
+  } else if (shape === SHAPE_ELLIPSE) {
+    c = { shape, position: [bx, by], size: [Math.max(1, bw), Math.max(1, bh)] };
   } else {
     c = { shape: SHAPE_RECT, position: [bx, by], size: [Math.max(1, bw), Math.max(1, bh)] };
   }
@@ -145,7 +147,8 @@ export function shapeToCollision(base, shape, rw, rh) {
 
 export function collisionShapeClass(shape) {
   if (shape === SHAPE_CIRCLE) return "shape-circle";
-  if (shape === SHAPE_CAPSULE) return "shape-ellipse";
+  if (shape === SHAPE_CAPSULE) return "shape-capsule";
+  if (shape === SHAPE_ELLIPSE) return "shape-ellipse";
   return "shape-rect";
 }
 
@@ -157,12 +160,14 @@ export function applyCollisionDOM(el, c, z) {
   el.style.top = a.y * z + "px";
   el.style.width = Math.max(1, a.w * z) + "px";
   el.style.height = Math.max(1, a.h * z) + "px";
+  el.style.borderRadius = c.shape === SHAPE_CAPSULE ? `${Math.min(a.w, a.h) * z / 2}px` : "";
 }
 
 export function collisionSummary(c) {
   if (!c) return "";
   if (c.shape === SHAPE_CIRCLE) return `Circle r=${c.radius}`;
   if (c.shape === SHAPE_CAPSULE) return `Capsule ${c.size[0]}×${c.size[1]}`;
+  if (c.shape === SHAPE_ELLIPSE) return `Ellipse ${c.size[0]}×${c.size[1]}`;
   return `Rect ${c.size[0]}×${c.size[1]}`;
 }
 

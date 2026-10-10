@@ -114,7 +114,7 @@ export function syncShapeFields() {
   $("shapeCapsuleFields").style.display = "none";
   if (!c) {
     $("shapeType").value = SHAPE_RECT;
-    $("spx").value = $("spy").value = $("sw").value = $("sh").value = $("sr").value = $("cr").value = $("cht").value = "";
+    $("spx").value = $("spy").value = $("sw").value = $("sh").value = $("sr").value = "";
     return;
   }
   $("shapeType").value = c.shape;
@@ -128,8 +128,6 @@ export function syncShapeFields() {
     $("shapeCapsuleFields").style.display = "block";
     $("sw").value = c.size[0];
     $("sh").value = c.size[1];
-    $("cr").value = c.radius;
-    $("cht").value = c.height;
   } else {
     $("shapeRectFields").style.display = "block";
     $("sw").value = c.size[0];

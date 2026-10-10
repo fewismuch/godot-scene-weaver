@@ -1,5 +1,5 @@
 import { $ } from "./dom.js";
-import { SHAPE_RECT, SHAPE_CIRCLE, SHAPE_CAPSULE } from "./constants.js";
+import { SHAPE_RECT, SHAPE_CIRCLE, SHAPE_CAPSULE, SHAPE_ELLIPSE } from "./constants.js";
 import { state } from "./state.js";
 import { markDirty } from "./utils.js";
 import { pushHistory } from "./history.js";
@@ -33,12 +33,15 @@ export function apply() {
     if (shape === SHAPE_CIRCLE) {
       o.collision = { shape, position: [px, py], radius: Math.max(1, +$("sr").value || 1) };
     } else if (shape === SHAPE_CAPSULE) {
+      const width = Math.max(2, +$("sw").value || 1), height = Math.max(2, +$("sh").value || 1);
       o.collision = {
         shape, position: [px, py],
-        size: [Math.max(2, +$("sw").value || 1), Math.max(2, +$("sh").value || 1)],
-        radius: Math.max(1, +$("cr").value || 1),
-        height: Math.max(2, +$("cht").value || 1),
+        size: [Math.min(width, height), height],
+        radius: Math.min(width, height) / 2,
+        height,
       };
+    } else if (shape === SHAPE_ELLIPSE) {
+      o.collision = { shape, position: [px, py], size: [Math.max(1, +$("sw").value || 1), Math.max(1, +$("sh").value || 1)] };
     } else {
       o.collision = { shape: SHAPE_RECT, position: [px, py], size: [Math.max(1, +$("sw").value || 1), Math.max(1, +$("sh").value || 1)] };
     }

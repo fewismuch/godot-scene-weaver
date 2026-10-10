@@ -211,7 +211,7 @@ export function bindEvents() {
   });
 
   $("applyBtn").onclick = apply;
-  ["description", "x", "y", "w", "h", "shapeType", "spx", "spy", "sw", "sh", "sr", "cr", "cht", "notes"]
+  ["description", "x", "y", "w", "h", "shapeType", "spx", "spy", "sw", "sh", "sr", "notes"]
     .forEach(id => $(id).addEventListener("input", () => { state.formDirty = true; markDirty(); }));
   $("name").addEventListener("input", () => { state.formDirty = true; markDirty(); updateNameValidation(); });
   $("shapeType").addEventListener("change", applyCollisionRegen);

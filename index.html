@@ -97,6 +97,7 @@
                 <option value="RectangleShape2D">RectangleShape2D</option>
                 <option value="CircleShape2D">CircleShape2D</option>
                 <option value="CapsuleShape2D">CapsuleShape2D</option>
+                <option value="EllipseShape2D">椭圆（ConvexPolygonShape2D）</option>
               </select>
             </div>
             <div class="field"><label>Position（Region 内中心）</label>
@@ -108,11 +109,7 @@
             <div id="shapeCircleFields" style="display:none">
               <div class="field"><label>Radius（px）</label><input id="sr" type="number" min="1"></div>
             </div>
-            <div id="shapeCapsuleFields" style="display:none">
-              <div class="field"><label>Capsule radius / height</label>
-                <div class="row"><input id="cr" type="number" min="1" title="radius"><input id="cht" type="number" min="1" title="height"></div>
-              </div>
-            </div>
+            <div id="shapeCapsuleFields" style="display:none" class="hint">胶囊体宽度为直径，高度为总高度；宽度不能大于高度。</div>
             <div class="btn-row">
               <button id="regenCollisionBtn" type="button">重新生成</button>
               <button id="clearCollisionBtn" type="button">清除</button>
