@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>图片处理工具 · Atlas Editor</title>
+  <link rel="stylesheet" href="css/image-tool.css">
+</head>
+<body>
+  <header><a href="index.html">← 返回 Atlas Editor</a><h1>图片处理工具</h1><span>逐格裁剪 · 像素化 · 可选去背景</span></header>
+  <main>
+    <section class="controls">
+      <label class="upload" for="sourceFile"><strong>选择图片</strong><span id="fileName">PNG / JPG / WebP，或拖入图片</span></label>
+      <input id="sourceFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+      <details class="control-group">
+        <summary>1. 背景颜色</summary>
+        <label>背景颜色（用于识别间隔） <input id="backgroundColor" type="color" value="#ffffff"></label>
+        <button id="pickColor" type="button">从原图点选颜色</button>
+        <label class="check"><input id="removeBackground" type="checkbox"> 去除背景色</label>
+        <label>去背景颜色容差 <input id="tolerance" type="number" min="0" max="255" value="16"></label>
+        <p class="help">默认取左上角颜色。关闭去背景时保留每格内部的背景；开启后只去除与画布边缘相连的背景。</p>
+      </details>
+      <details class="control-group" open>
+        <summary>2. 裁剪原图网格</summary>
+        <div class="pair"><label>原图列数 <input id="sourceColumns" type="number" min="1" max="256" value="4"></label><label>原图行数 <input id="sourceRows" type="number" min="1" max="256" value="4"></label></div>
+        <label class="check"><input id="autoSpacing" type="checkbox" checked> 自动识别边缘和行列间隔</label>
+        <label>间隔识别颜色容差 <input id="spacingTolerance" type="number" min="0" max="255" value="16"></label>
+        <p class="help">仅用于识别裁剪边界：接近背景色的残留像素会被视为空白，不改变去背景结果。</p>
+        <details id="manualSpacing" class="sub-group">
+          <summary>边缘和间隔（自动结果 / 手动调整）</summary>
+          <div class="pair"><label>左边缘（px） <input id="marginLeft" type="number" min="0" value="0"></label><label>右边缘（px） <input id="marginRight" type="number" min="0" value="0"></label></div>
+          <div class="pair"><label>上边缘（px） <input id="marginTop" type="number" min="0" value="0"></label><label>下边缘（px） <input id="marginBottom" type="number" min="0" value="0"></label></div>
+          <div class="pair"><label>列间隔（px） <input id="columnGap" type="number" min="0" value="0"></label><label>行间隔（px） <input id="rowGap" type="number" min="0" value="0"></label></div>
+          <p class="help">自动识别后会填入边缘和平均间隔。取消自动识别即可修改；原图中的黄色虚线是裁剪边界，暗色遮罩是被跳过的区域。</p>
+        </details>
+        <p id="guideStatus" class="help" role="status">上传图片后，原图预览会显示裁剪参考线。</p>
+        <p class="help">自动模式会忽略透明或接近背景色的整列、整行空白带。若原图内部也有整列空白导致识别不准，关闭自动模式后填写边缘和间隔。</p>
+      </details>
+      <details class="control-group" open>
+        <summary>3. 逐格像素化</summary>
+        <div class="pair"><label>小图宽度 <input id="tileWidth" type="number" min="2" max="256" value="32"></label><label>小图高度 <input id="tileHeight" type="number" min="2" max="256" value="32"></label></div>
+        <label>格内取样方式 <select id="sampleMethod"><option value="center">中心取样</option><option value="median">中位数</option><option value="majority">多数色</option></select></label>
+        <p class="help">中心取样保留中心细节；中位数减少零散噪点；多数色取格内较大的颜色簇。</p>
+        <div class="pair"><label>饱和度（%） <input id="saturation" type="number" min="0" max="200" value="100"></label><label>对比度（%） <input id="contrast" type="number" min="0" max="200" value="100"></label></div>
+        <p class="help">100% 保持原色；调整应用于像素化后的图集，也会作用于 ZIP 中每张小图。修改后点击「生成像素图集」。</p>
+        <p class="help">先按网格裁出每格内容，再各自放大到目标尺寸的 4 倍并像素化，最后放回原来的行列位置。没有额外边框。4×4 格、每格 32×32 时，成品为 128×128。</p>
+      </details>
+      <button id="process" class="primary" type="button" disabled>生成像素图集</button>
+      <button id="download" type="button" disabled>下载像素图集 PNG</button>
+      <button id="downloadTiles" type="button" disabled>下载像素小图 ZIP</button>
+      <p id="message" role="status">请先选择图片。</p>
+      <p class="credit">像素网格校正参考 <a href="https://github.com/theamusing/perfectPixel_webdemo" target="_blank" rel="noopener noreferrer">perfectPixel Web Demo</a>。使用固定网格尺寸、Sobel 边缘校正与格内取样。</p>
+    </section>
+    <section class="preview">
+      <div class="pane"><div class="pane-heading"><h2>原图</h2><span id="sourceInfo">未加载</span></div><div class="zoom-controls"><button id="source100" type="button" aria-pressed="false">100%</button><button id="source200" type="button" aria-pressed="false">200%</button><button id="source300" type="button" aria-pressed="false">300%</button><button id="sourceFit" type="button" aria-pressed="false">适应</button><span id="sourceZoom">—</span></div><div class="image-area"><div class="zoom-stage"><canvas id="sourceCanvas"></canvas><svg id="cropGuide" class="crop-guide" aria-hidden="true" hidden></svg></div></div></div>
+      <div class="pane"><div class="pane-heading"><h2>处理结果</h2><span id="resultInfo">等待生成</span></div><div class="zoom-controls"><button id="result100" type="button" aria-pressed="false">100%</button><button id="result200" type="button" aria-pressed="false">200%</button><button id="result300" type="button" aria-pressed="false">300%</button><button id="resultFit" type="button" aria-pressed="false">适应</button><span id="resultZoom">—</span></div><div class="image-area"><div class="zoom-stage"><canvas id="resultCanvas"></canvas></div></div></div>
+    </section>
+  </main>
+  <script type="module" src="js/image-tool.js"></script>
+</body>
+</html>

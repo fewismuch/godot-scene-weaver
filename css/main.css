@@ -9,6 +9,8 @@ button.primary{background:#4a62b8;border-color:#6880d4;color:#fff}
 button.primary:hover{background:#5670cc}
 button.active{background:#3d4a72;border-color:#6880d4;color:#fff}
 button:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.toolbar-link{color:#d9e2ff;text-decoration:none;border:1px solid #3d4454;border-radius:6px;padding:6px 12px;background:#2a2f3a}
+.toolbar-link:hover{background:#343a48}
 .app{height:100vh;display:flex;flex-direction:column}
 
 .toolbar{height:52px;display:flex;align-items:center;gap:6px;padding:0 12px;background:#1a1d24;border-bottom:1px solid #2e3340;flex-shrink:0}

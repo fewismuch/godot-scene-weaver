@@ -1,0 +1,50 @@
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:#111318;color:#e5e8ef;font:14px/1.45 system-ui,-apple-system,sans-serif}
+button,input,select{font:inherit}
+button{padding:9px 12px;background:#2a303b;color:#e5e8ef;border:1px solid #424b5c;border-radius:6px;cursor:pointer}
+button:hover{background:#353d4b}button:disabled{opacity:.45;cursor:default}
+button.primary{background:#526dc4;border-color:#7791e1;color:white;font-weight:600}
+header{height:60px;display:flex;align-items:center;gap:22px;padding:0 22px;border-bottom:1px solid #303746;background:#1b2029}
+header h1{font-size:17px;margin:0}header span{color:#929dad;font-size:12px}a{color:#a9bfff}
+main{display:grid;grid-template-columns:330px minmax(0,1fr);height:calc(100vh - 60px)}
+.controls{overflow:auto;padding:20px 22px;border-right:1px solid #303746}
+.controls .control-group{border-top:1px solid #303746}
+.controls details>summary{display:flex;align-items:center;cursor:pointer;list-style:none}
+.controls details>summary::-webkit-details-marker{display:none}
+.controls details>summary::before{content:"";width:8px;height:8px;margin:0 10px 0 2px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg);flex:none}
+.controls details[open]>summary::before{transform:rotate(45deg)}
+.controls .control-group>summary{min-height:44px;color:#c6cfdd;font-size:13px;font-weight:600}
+.controls .sub-group{margin:12px 0;padding:10px 8px;border:1px solid #424b5c;border-radius:5px;background:#171b22}
+.controls .sub-group>summary{min-height:38px;color:#b9c8e7;font-size:12px}
+.controls details>summary:hover{color:#fff}
+.controls details:not([open])>:not(summary){display:none}
+.controls label:not(.upload){display:block;margin:10px 0;color:#aeb8c8;font-size:12px}
+.controls input:not([type=file]),.controls select{display:block;width:100%;margin-top:5px;padding:8px;background:#171b22;border:1px solid #424b5c;border-radius:5px;color:#fff}
+.controls input:disabled{opacity:.65;cursor:default}
+.controls input[type=color]{height:38px;padding:3px}
+.controls .pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.controls .pair[hidden]{display:none}
+.controls label.check{display:flex;align-items:center;gap:8px;margin-top:14px}
+.controls label.check input[type=checkbox]{display:inline-block;width:auto;margin:0}
+.controls>button,.controls .control-group>button{width:100%;margin-top:8px}
+.upload{display:block;padding:20px 14px;border:1px dashed #7187ba;border-radius:8px;text-align:center;cursor:pointer;background:#1a2232;margin-bottom:18px;}
+.upload strong,.upload span{display:block}.upload span{margin-top:4px;font-size:11px;color:#aeb8c8;overflow-wrap:anywhere}
+.help,.credit{color:#8894a5;font-size:11px;line-height:1.5}.credit{margin-top:24px}
+#message{font-size:12px;min-height:35px;color:#b9c8e7}#message.error{color:#ff9b9b}
+.preview{min-width:0;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#303746}
+.pane{background:#15191f;min-width:0;min-height:0;display:flex;flex-direction:column}
+.pane-heading{height:40px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 16px;color:#929dad;font-size:11px}
+.pane-heading h2{font-size:13px;color:#e5e8ef;margin:0}
+.zoom-controls{height:36px;flex:none;display:flex;align-items:center;gap:5px;padding:0 12px;border-bottom:1px solid #303746}
+.zoom-controls button{padding:3px 8px;font-size:11px}.zoom-controls span{margin-left:auto;color:#929dad;font-size:11px;font-variant-numeric:tabular-nums}
+.zoom-controls button.active{background:#526dc4;border-color:#7791e1;color:#fff}
+.image-area{flex:1;min-height:0;overflow:auto;padding:24px;background-color:#161a21;background-image:linear-gradient(45deg,#202630 25%,transparent 25%),linear-gradient(-45deg,#202630 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#202630 75%),linear-gradient(-45deg,transparent 75%,#202630 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0}
+.zoom-stage{width:0;height:0;position:relative}
+canvas{display:block;image-rendering:pixelated}
+.crop-guide{position:absolute;inset:0;z-index:2;width:100%;height:100%;pointer-events:none;overflow:visible}
+.crop-guide[hidden]{display:none}
+.guide-mask{fill:rgba(8,12,18,.62)}
+.guide-line{stroke:#ffd34f;stroke-width:1.5;stroke-dasharray:5 3;vector-effect:non-scaling-stroke}
+.crop-guide.approx .guide-line{stroke:#ff9b59}
+#sourceCanvas.picking{cursor:crosshair}
+@media(max-width:900px){main{grid-template-columns:1fr;height:auto}.controls{border-right:0;border-bottom:1px solid #303746}.preview{height:65vh}}

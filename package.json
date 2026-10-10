@@ -3,6 +3,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node server.js"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test",
+    "start": "vite"
+  },
+  "devDependencies": {
+    "vite": "^7.1.0"
   }
 }
