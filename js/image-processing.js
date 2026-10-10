@@ -181,14 +181,11 @@ function adjustPixelColors(data, saturation, contrast) {
   }
 }
 
-function contentBounds(image, x0, y0, x1, y1) {
-  let left = x1, top = y1, right = -1, bottom = -1;
+function hasVisibleContent(image, x0, y0, x1, y1) {
   for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
-    if (image.data[(y * image.width + x) * 4 + 3] < 128) continue;
-    left = Math.min(left, x); top = Math.min(top, y);
-    right = Math.max(right, x); bottom = Math.max(bottom, y);
+    if (image.data[(y * image.width + x) * 4 + 3] >= 128) return true;
   }
-  return right < left ? null : { x: left, y: top, w: right - left + 1, h: bottom - top + 1 };
+  return false;
 }
 
 function inkRuns(image, axis, detection) {
@@ -237,7 +234,9 @@ export function detectGridBands(image, columns, rows, spacing = null, detection 
   if (columns === 1 && x.length) x.splice(0, x.length, { start: x[0].start, end: x.at(-1).end });
   if (rows === 1 && y.length) y.splice(0, y.length, { start: y[0].start, end: y.at(-1).end });
   if (x.length !== columns || y.length !== rows) {
-    throw new Error(`自动识别到 ${x.length} 列、${y.length} 行内容，与设定的 ${columns} 列、${rows} 行不符。请检查背景色，或关闭自动识别并填写边缘和间隔。`);
+    const error = new Error(`自动识别到 ${x.length} 列、${y.length} 行内容，与设定的 ${columns} 列、${rows} 行不符。`);
+    error.code = "GRID_COUNT_MISMATCH";
+    throw error;
   }
   return { x, y };
 }
@@ -255,12 +254,13 @@ export function pixelateGridImage(image, columns, rows, tileWidth, tileHeight, s
   const output = result.getContext("2d");
   let count = 0;
   for (let row = 0; row < rows; row++) for (let col = 0; col < columns; col++) {
-    const box = contentBounds(image, bands.x[col].start, bands.y[row].start, bands.x[col].end, bands.y[row].end);
-    if (!box) continue;
+    const xBand = bands.x[col], yBand = bands.y[row];
+    if (!hasVisibleContent(image, xBand.start, yBand.start, xBand.end, yBand.end)) continue;
     largeCtx.clearRect(0, 0, large.width, large.height);
     largeCtx.imageSmoothingEnabled = true;
     largeCtx.imageSmoothingQuality = "high";
-    largeCtx.drawImage(source, box.x, box.y, box.w, box.h, 0, 0, large.width, large.height);
+    largeCtx.drawImage(source, xBand.start, yBand.start, xBand.end - xBand.start, yBand.end - yBand.start,
+      0, 0, large.width, large.height);
     const pixels = sampleRefinedGrid(largeCtx.getImageData(0, 0, large.width, large.height), tileWidth, tileHeight, sampleMethod);
     adjustPixelColors(pixels.data, color.saturation, color.contrast);
     output.putImageData(new ImageData(pixels.data, tileWidth, tileHeight), col * tileWidth, row * tileHeight);

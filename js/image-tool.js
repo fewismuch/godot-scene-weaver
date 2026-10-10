@@ -4,6 +4,7 @@ import { createZip } from "./zip.js";
 const $ = id => document.getElementById(id);
 const source = $("sourceCanvas"), result = $("resultCanvas");
 let loaded = false, picking = false, exportingZip = false;
+let originalImage = null;
 let outputName = "pixel-atlas.png", tilesName = "pixel-tiles.zip", pixelGrid = null;
 const zoom = new WeakMap();
 
@@ -68,6 +69,7 @@ function number(id, min, max) {
 function hex(rgb) { return `#${Array.from(rgb).map(v => v.toString(16).padStart(2, "0")).join("")}`; }
 function rgb(value) { return [1, 3, 5].map(i => Number.parseInt(value.slice(i, i + 2), 16)); }
 const spacingIds = ["marginLeft", "marginRight", "marginTop", "marginBottom", "columnGap", "rowGap"];
+const equalSpacing = { left: 0, right: 0, top: 0, bottom: 0, columnGap: 0, rowGap: 0 };
 
 function setBackgroundEditability() {
   $("tolerance").disabled = !$("removeBackground").checked;
@@ -77,6 +79,14 @@ function workingImage(input, backgroundColor, tolerance) {
   return $("removeBackground").checked
     ? removeSolidBackground(input, backgroundColor, tolerance)
     : input;
+}
+
+function updateSourcePreview() {
+  if (!originalImage) return;
+  const preview = workingImage(originalImage, rgb($("backgroundColor").value), Number($("tolerance").value));
+  source.getContext("2d", { willReadFrequently: true }).putImageData(
+    new ImageData(preview.data, preview.width, preview.height), 0, 0
+  );
 }
 
 function setSpacingEditability() {
@@ -122,18 +132,16 @@ function updateCropGuide() {
         status.textContent = "间隔识别颜色容差应为 0–255 的整数。";
         return;
       }
-      const input = source.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, source.width, source.height);
-      const clean = workingImage(input, rgb($("backgroundColor").value), value("tolerance"));
+      const clean = workingImage(originalImage, rgb($("backgroundColor").value), value("tolerance"));
       bands = detectGridBands(clean, columns, rows, null,
         { backgroundColor: rgb($("backgroundColor").value), tolerance: spacingTolerance });
       fillDetectedSpacing(bands);
       status.textContent = "原图上已显示自动识别的裁剪线；关闭自动识别可手动调整。";
     } catch {
       approximate = true;
-      try { bands = detectGridBands({ width: source.width, height: source.height }, columns, rows,
-        { left: 0, right: 0, top: 0, bottom: 0, columnGap: 0, rowGap: 0 }); }
+      try { bands = detectGridBands({ width: source.width, height: source.height }, columns, rows, equalSpacing); }
       catch { status.textContent = "无法计算参考线，请检查行列数。"; return; }
-      status.textContent = "自动识别未匹配当前行列数；橙色线是临时等分参考线。关闭自动识别后可调整边缘和间隔。";
+      status.textContent = "自动识别未匹配当前行列数；生成时将按橙色等分线裁剪。关闭自动识别后可调整边缘和间隔。";
     }
   } else {
     const spacing = {
@@ -191,8 +199,10 @@ async function loadFile(file) {
     await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = reject; image.src = url; });
     source.width = image.naturalWidth; source.height = image.naturalHeight;
     source.getContext("2d", { willReadFrequently: true }).drawImage(image, 0, 0);
-    const pixel = source.getContext("2d").getImageData(0, 0, 1, 1).data;
+    originalImage = source.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, source.width, source.height);
+    const pixel = originalImage.data.slice(0, 4);
     $("backgroundColor").value = hex(pixel.slice(0, 3));
+    updateSourcePreview();
     $("fileName").textContent = file.name;
     $("sourceInfo").textContent = `${source.width} × ${source.height}`;
     outputName = `${file.name.replace(/\.[^.]+$/, "")}-pixel-atlas.png`;
@@ -212,6 +222,7 @@ async function loadFile(file) {
 $("sourceFile").addEventListener("change", event => loadFile(event.target.files[0]));
 $("removeBackground").addEventListener("change", () => {
   setBackgroundEditability();
+  updateSourcePreview();
   updateCropGuide();
 });
 $("autoSpacing").addEventListener("change", () => {
@@ -222,7 +233,10 @@ $("autoSpacing").addEventListener("change", () => {
 for (const id of ["sourceColumns", "sourceRows", "marginLeft", "marginRight", "marginTop", "marginBottom", "columnGap", "rowGap"]) {
   $(id).addEventListener("input", updateCropGuide);
 }
-for (const id of ["backgroundColor", "tolerance", "spacingTolerance"]) $(id).addEventListener("input", updateCropGuide);
+for (const id of ["backgroundColor", "tolerance", "spacingTolerance"]) $(id).addEventListener("input", () => {
+  if (id !== "spacingTolerance") updateSourcePreview();
+  updateCropGuide();
+});
 setBackgroundEditability();
 setSpacingEditability();
 $("pickColor").addEventListener("click", () => {
@@ -234,8 +248,10 @@ source.addEventListener("click", event => {
   const rect = source.getBoundingClientRect();
   const x = Math.min(source.width - 1, Math.max(0, Math.floor((event.clientX - rect.left) * source.width / rect.width)));
   const y = Math.min(source.height - 1, Math.max(0, Math.floor((event.clientY - rect.top) * source.height / rect.height)));
-  $("backgroundColor").value = hex(source.getContext("2d").getImageData(x, y, 1, 1).data.slice(0, 3));
+  const pixel = (y * source.width + x) * 4;
+  $("backgroundColor").value = hex(originalImage.data.slice(pixel, pixel + 3));
   picking = false; source.classList.remove("picking");
+  updateSourcePreview();
   updateCropGuide();
   message(`背景色已选取：${$("backgroundColor").value}`);
 });
@@ -256,15 +272,25 @@ $("process").addEventListener("click", async () => {
     const rows = number("sourceRows", 1, 256);
     const outputWidth = tileWidth * columns, outputHeight = tileHeight * rows;
     if (outputWidth > 8192 || outputHeight > 8192 || tileWidth * 4 > 8192 || tileHeight * 4 > 8192) throw new Error("图像过大，请减小网格数或单格尺寸。");
-    const spacing = $("autoSpacing").checked ? null : {
+    let spacing = $("autoSpacing").checked ? null : {
       left: number("marginLeft", 0, source.width), right: number("marginRight", 0, source.width),
       top: number("marginTop", 0, source.height), bottom: number("marginBottom", 0, source.height),
       columnGap: number("columnGap", 0, source.width), rowGap: number("rowGap", 0, source.height),
     };
     $("process").disabled = true; message($("removeBackground").checked ? "正在去背景、逐格裁剪并像素化…" : "正在逐格裁剪并像素化…");
     await new Promise(resolve => setTimeout(resolve, 20));
-    const input = source.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, source.width, source.height);
-    const clean = workingImage(input, rgb($("backgroundColor").value), tolerance);
+    const clean = workingImage(originalImage, rgb($("backgroundColor").value), tolerance);
+    let approximate = false;
+    if ($("autoSpacing").checked) {
+      try {
+        detectGridBands(clean, columns, rows, null,
+          { backgroundColor: rgb($("backgroundColor").value), tolerance: spacingTolerance });
+      } catch (error) {
+        if (error.code !== "GRID_COUNT_MISMATCH") throw error;
+        spacing = equalSpacing;
+        approximate = true;
+      }
+    }
     const { canvas: sheet, count } = pixelateGridImage(clean, columns, rows, tileWidth, tileHeight, spacing, 4,
       { backgroundColor: rgb($("backgroundColor").value), tolerance: spacingTolerance }, { saturation, contrast }, sampleMethod);
     if (!count) throw new Error("没有找到有效小图，请检查背景色和裁剪间隔。");
@@ -275,7 +301,7 @@ $("process").addEventListener("click", async () => {
     pixelGrid = { columns, rows, tileWidth, tileHeight };
     $("downloadTiles").disabled = false;
     $("download").disabled = false;
-    message(`已裁剪并像素化 ${count} 张小图；每格 ${tileWidth}×${tileHeight}，图集 ${sheet.width}×${sheet.height}，保留原行列位置。`);
+    message(`${approximate ? "自动识别与设定不符，已按原图中的橙色等分线裁剪。" : ""}已裁剪并像素化 ${count} 张小图；每格 ${tileWidth}×${tileHeight}，图集 ${sheet.width}×${sheet.height}，保留原行列位置。`);
   } catch (error) { message(error.message || "处理失败。", true); }
   finally { $("process").disabled = false; }
 });

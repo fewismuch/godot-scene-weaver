@@ -18,7 +18,7 @@
         <button id="pickColor" type="button">从原图点选颜色</button>
         <label class="check"><input id="removeBackground" type="checkbox"> 去除背景色</label>
         <label>去背景颜色容差 <input id="tolerance" type="number" min="0" max="255" value="16"></label>
-        <p class="help">默认取左上角颜色。关闭去背景时保留每格内部的背景；开启后只去除与画布边缘相连的背景。</p>
+        <p class="help">默认取左上角颜色。关闭去背景时保留每格内部的背景；开启后只去除与画布边缘相连的背景，并在原图中实时预览。</p>
       </details>
       <details class="control-group" open>
         <summary>2. 裁剪原图网格</summary>
@@ -34,7 +34,7 @@
           <p class="help">自动识别后会填入边缘和平均间隔。取消自动识别即可修改；原图中的黄色虚线是裁剪边界，暗色遮罩是被跳过的区域。</p>
         </details>
         <p id="guideStatus" class="help" role="status">上传图片后，原图预览会显示裁剪参考线。</p>
-        <p class="help">自动模式会忽略透明或接近背景色的整列、整行空白带。若原图内部也有整列空白导致识别不准，关闭自动模式后填写边缘和间隔。</p>
+        <p class="help">自动模式会忽略透明或接近背景色的整列、整行空白带。识别数量与设定不符时，仍可按原图中的橙色等分线生成；需要精确边界时，关闭自动模式后填写边缘和间隔。</p>
       </details>
       <details class="control-group" open>
         <summary>3. 逐格像素化</summary>
@@ -43,7 +43,7 @@
         <p class="help">中心取样保留中心细节；中位数减少零散噪点；多数色取格内较大的颜色簇。</p>
         <div class="pair"><label>饱和度（%） <input id="saturation" type="number" min="0" max="200" value="100"></label><label>对比度（%） <input id="contrast" type="number" min="0" max="200" value="100"></label></div>
         <p class="help">100% 保持原色；调整应用于像素化后的图集，也会作用于 ZIP 中每张小图。修改后点击「生成像素图集」。</p>
-        <p class="help">先按网格裁出每格内容，再各自放大到目标尺寸的 4 倍并像素化，最后放回原来的行列位置。没有额外边框。4×4 格、每格 32×32 时，成品为 128×128。</p>
+        <p class="help">按完整裁剪格像素化，保留格内透明边距，再放回原来的行列位置。没有额外边框。4×4 格、每格 32×32 时，成品为 128×128。</p>
       </details>
       <button id="process" class="primary" type="button" disabled>生成像素图集</button>
       <button id="download" type="button" disabled>下载像素图集 PNG</button>

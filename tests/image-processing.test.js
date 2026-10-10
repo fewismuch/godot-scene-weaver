@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { removeSolidBackground, detectGridBands, refinedGrid, sampleRefinedGrid } from "../js/image-processing.js";
+import { removeSolidBackground, detectGridBands, pixelateGridImage, refinedGrid, sampleRefinedGrid } from "../js/image-processing.js";
 
 function image(width, height, paint) {
   const data = new Uint8ClampedArray(width * height * 4);
@@ -50,5 +50,43 @@ test("detects outer margins and inter-cell gaps after background removal", () =>
   assert.deepEqual(detectGridBands(clean, 2, 2, {
     left: 10, right: 20, top: 5, bottom: 10, columnGap: 30, rowGap: 25,
   }), expected);
-  assert.throws(() => detectGridBands(clean, 3, 2), /自动识别到 2 列/);
+  assert.throws(() => detectGridBands(clean, 3, 2), error =>
+    error.code === "GRID_COUNT_MISMATCH" && /自动识别到 2 列/.test(error.message));
+  assert.deepEqual(detectGridBands(clean, 3, 2, {
+    left: 0, right: 0, top: 0, bottom: 0, columnGap: 0, rowGap: 0,
+  }).x, [
+    { start: 0, end: 33 }, { start: 33, end: 67 }, { start: 67, end: 100 },
+  ]);
+});
+
+test("pixelation scales the whole crop cell including transparent padding", () => {
+  const previousDocument = globalThis.document, previousImageData = globalThis.ImageData;
+  const drawn = [];
+  globalThis.ImageData = class {
+    constructor(data, width, height) { Object.assign(this, { data, width, height }); }
+  };
+  globalThis.document = {
+    createElement: () => {
+      const canvas = { width: 0, height: 0 };
+      canvas.getContext = () => ({
+        putImageData() {}, clearRect() {},
+        drawImage(...args) { drawn.push(args); },
+        getImageData() {
+          return image(canvas.width, canvas.height, () => [0, 0, 0, 0]);
+        },
+      });
+      return canvas;
+    },
+  };
+  try {
+    const source = image(6, 6, (x, y) => x === 2 && y === 3
+      ? [200, 20, 20, 255] : [0, 0, 0, 0]);
+    const spacing = { left: 0, right: 0, top: 0, bottom: 0, columnGap: 0, rowGap: 0 };
+    const result = pixelateGridImage(source, 1, 1, 4, 4, spacing);
+    assert.equal(result.count, 1);
+    assert.deepEqual(drawn[0].slice(1, 5), [0, 0, 6, 6]);
+  } finally {
+    globalThis.document = previousDocument;
+    globalThis.ImageData = previousImageData;
+  }
 });
