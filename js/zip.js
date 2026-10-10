@@ -18,7 +18,7 @@ export function createZip(files) {
   let offset = 0, centralSize = 0;
   for (const { name, data } of files) {
     const filename = encoder.encode(name);
-    const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+    const bytes = data instanceof Uint8Array ? data : typeof data === "string" ? encoder.encode(data) : new Uint8Array(data);
     if (filename.length > 65535 || bytes.length > 0xffffffff) throw new Error("ZIP 文件过大。");
     const size = 30 + filename.length + bytes.length;
     if (offset + size > 0xffffffff) throw new Error("ZIP 文件超过 4 GB 上限。");

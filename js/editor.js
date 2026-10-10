@@ -4,18 +4,23 @@ import { state } from "./state.js";
 import { markDirty } from "./utils.js";
 import { pushHistory } from "./history.js";
 import { rectOf, setRect, clampCollisionToRegion, gridFromCollision, regenerateCollisionForShape } from "./model.js";
-import { current } from "./selection.js";
 import { render, showSelected, updateNameValidation } from "./render.js";
 import { findNameConflict } from "./validation.js";
 
+function current() { return state.primary >= 0 ? state.objects[state.primary] : null; }
+
+export function commitPendingEditor() {
+  return !state.formDirty || apply();
+}
+
 export function apply() {
   const o = current();
-  if (!o) return;
+  if (!o) return false;
   const newName = $("name").value.trim() || o.id;
   const conflict = findNameConflict(newName, state.primary);
   if (conflict >= 0) {
     updateNameValidation(newName);
-    return;
+    return false;
   }
   o.name = newName;
   o.description = $("description").value;
@@ -41,16 +46,20 @@ export function apply() {
     o.grid_size = gridFromCollision(o.collision);
   }
   o.notes = $("notes").value;
+  state.formDirty = false;
   pushHistory();
   markDirty();
   render();
   showSelected();
+  return true;
 }
 
 export function applyCollisionRegen() {
+  const shape = $("shapeType").value;
+  if (!commitPendingEditor()) return;
   const o = current();
   if (!o) return;
-  o.collision = regenerateCollisionForShape(o, $("shapeType").value);
+  o.collision = regenerateCollisionForShape(o, shape);
   o.grid_size = gridFromCollision(o.collision);
   pushHistory();
   markDirty();
@@ -59,6 +68,7 @@ export function applyCollisionRegen() {
 }
 
 export function clearCollision() {
+  if (!commitPendingEditor()) return;
   const o = current();
   if (!o) return;
   o.collision = null;

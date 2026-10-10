@@ -1,10 +1,13 @@
 export const state = {
   img: null,
+  imageURL: null,
   imgData: null,
   imageName: "",
   objects: [],
   zoom: 2,
   dirty: false,
+  formDirty: false,
+  documentVersion: 0,
   sortAsc: true,
   selected: new Set(),
   primary: -1,

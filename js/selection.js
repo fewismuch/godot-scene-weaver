@@ -5,24 +5,19 @@ import { displayName, markDirty } from "./utils.js";
 import { pushHistory } from "./history.js";
 import { rectOf, setRect, rectsIntersect, gridFromCollision, regenerateCollisionForShape } from "./model.js";
 import { render, showSelected } from "./render.js";
-
-export function normalizeSelection() {
-  state.selected = new Set([...state.selected].filter(i => i >= 0 && i < state.objects.length));
-  if (state.primary >= state.objects.length) state.primary = state.objects.length - 1;
-  if (state.editingIndex >= state.objects.length) state.editingIndex = -1;
-  if (state.selected.size === 0 && state.objects.length) state.selected.add(state.primary >= 0 ? state.primary : 0);
-  if (state.selected.size && !state.selected.has(state.primary)) state.primary = [...state.selected][0];
-  updateMergeButton();
-}
+import { commitPendingEditor } from "./editor.js";
 
 export function selectSingle(i) {
+  if (!commitPendingEditor()) return false;
   state.selected = new Set([i]);
   state.primary = i;
   render();
   showSelected();
+  return true;
 }
 
 export function toggleSelect(i) {
+  if (!commitPendingEditor()) return false;
   if (state.selected.has(i)) {
     state.selected.delete(i);
     if (state.primary === i) state.primary = state.selected.size ? [...state.selected][0] : -1;
@@ -32,28 +27,21 @@ export function toggleSelect(i) {
   }
   render();
   showSelected();
+  return true;
 }
 
 export function clearSelection() {
+  if (!commitPendingEditor()) return false;
   state.selected = new Set();
   state.primary = -1;
   state.editingIndex = -1;
   render();
   showSelected();
-}
-
-export function updateMergeButton() {
-  const n = state.selected.size;
-  $("mergeBtn").disabled = n < 2;
-  $("multiHint").style.display = n > 1 ? "block" : "none";
-  $("multiCount").textContent = n;
-  if (n > 1) {
-    $("editor").style.display = "none";
-    $("noSelection").style.display = "none";
-  }
+  return true;
 }
 
 export function mergeSelected() {
+  if (!commitPendingEditor()) return;
   const indices = [...state.selected].sort((a, b) => a - b);
   if (indices.length < 2) return;
   const keep = state.objects[indices[0]];
@@ -81,10 +69,12 @@ export function mergeSelected() {
 export function current() { return state.primary >= 0 ? state.objects[state.primary] : null; }
 
 export function enterCollisionEdit(i) {
-  selectSingle(i);
+  if (!selectSingle(i)) return;
   if (!state.objects[i].collision) {
     state.objects[i].collision = regenerateCollisionForShape(state.objects[i], SHAPE_RECT);
     state.objects[i].grid_size = gridFromCollision(state.objects[i].collision);
+    pushHistory();
+    markDirty();
   }
   state.editingIndex = i;
   render();
@@ -92,6 +82,7 @@ export function enterCollisionEdit(i) {
 }
 
 export function deleteSelected() {
+  if (!commitPendingEditor()) return;
   if (!state.selected.size) return;
   const names = [...state.selected].map(i => displayName(state.objects[i])).join("、");
   if (!confirm(`删除 ${names}？`)) return;
@@ -108,6 +99,7 @@ export function deleteSelected() {
 }
 
 export function finishMarquee(x0, y0, dx, dy, additive) {
+  if (!commitPendingEditor()) { $("drawRect").style.display = "none"; return; }
   $("drawRect").style.display = "none";
   const x = Math.min(x0, x0 + dx), y = Math.min(y0, y0 + dy);
   const w = Math.abs(dx), h = Math.abs(dy);
@@ -123,6 +115,7 @@ export function finishMarquee(x0, y0, dx, dy, additive) {
 }
 
 export function addCollisionSelected() {
+  if (!commitPendingEditor()) return;
   if (!state.img) return;
   const targets = state.selected.size ? [...state.selected].sort((a, b) => a - b) : state.primary >= 0 ? [state.primary] : [];
   if (!targets.length) return;
@@ -143,6 +136,7 @@ export function addCollisionSelected() {
 }
 
 export function deleteCollisionSelected() {
+  if (!commitPendingEditor()) return;
   const targets = state.selected.size ? [...state.selected] : state.primary >= 0 ? [state.primary] : [];
   if (!targets.length) return;
   for (const i of targets) state.objects[i].collision = null;

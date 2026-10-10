@@ -54,10 +54,14 @@ export function segmentImage(image) {
 }
 
 export async function autoSegment() {
-  if (!state.img) return;
+  if (!state.img) return false;
+  const version = state.documentVersion;
+  const image = state.img;
   showProgress("正在自动分割…");
   await new Promise(r => setTimeout(r, 16));
-  const rects = segmentImage(state.img);
+  if (version !== state.documentVersion || image !== state.img) return false;
+  const rects = segmentImage(image);
+  if (version !== state.documentVersion || image !== state.img) return false;
   state.objects = rects.map((r, i) => normalize({
     id: `OBJ_${String(i + 1).padStart(3, "0")}`,
     top_left: { x: r.x, y: r.y },
@@ -71,4 +75,5 @@ export async function autoSegment() {
   hideProgress();
   render();
   showSelected();
+  return true;
 }

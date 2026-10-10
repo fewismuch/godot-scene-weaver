@@ -11,7 +11,7 @@ import {
   enterCollisionEdit, finishMarquee, addCollisionSelected, deleteCollisionSelected, current,
 } from "./selection.js";
 import { render, renderList, showSelected, setZoom, fit, setCursorInfo, syncEditorFields, renderCollisionOnly, updateNameValidation } from "./render.js";
-import { apply, applyCollisionRegen, clearCollision } from "./editor.js";
+import { apply, applyCollisionRegen, clearCollision, commitPendingEditor } from "./editor.js";
 import { loadImageFile, loadJSON, exportJSON } from "./io.js";
 import { exportGodotScene } from "./godot-export.js";
 import { autoSegment } from "./segment.js";
@@ -57,6 +57,7 @@ function showContextMenu(x, y) {
 function onOverlayMouseDown(e) {
   const handle = e.target.closest(".handle");
   if (handle && e.button === 0 && state.editingIndex >= 0) {
+    if (!commitPendingEditor()) return;
     e.stopPropagation();
     e.preventDefault();
     const box = handle.closest(".collision"), i = +box.dataset.i;
@@ -71,6 +72,7 @@ function onOverlayMouseDown(e) {
   }
   const collision = e.target.closest(".collision");
   if (collision && e.button === 0) {
+    if (!commitPendingEditor()) return;
     e.stopPropagation();
     e.preventDefault();
     const i = +collision.dataset.i;
@@ -90,7 +92,7 @@ function onOverlayMouseDown(e) {
     const i = +rect.dataset.i;
     if (e.shiftKey) toggleSelect(i);
     else if (!state.selected.has(i) || state.selected.size > 1) {
-      selectSingle(i);
+      if (!selectSingle(i)) return;
       state.editingIndex = -1;
       render();
     }
@@ -112,11 +114,36 @@ function onOverlayContextMenu(e) {
   e.preventDefault();
   e.stopPropagation();
   const i = +rect.dataset.i;
-  if (!state.selected.has(i)) selectSingle(i);
+  if (!state.selected.has(i) && !selectSingle(i)) return;
   showContextMenu(e.clientX, e.clientY);
 }
 
+function undoPending() {
+  if (commitPendingEditor()) undo();
+}
+
+function redoPending() {
+  if (commitPendingEditor()) redo();
+}
+
 export function bindEvents() {
+  $("list").addEventListener("mousedown", e => {
+    if (e.shiftKey && e.target.closest("[data-i]")) {
+      e.preventDefault();
+      window.getSelection()?.removeAllRanges();
+    }
+  });
+  $("list").addEventListener("click", e => {
+    const row = e.target.closest("[data-i]");
+    if (!row) return;
+    const i = Number(row.dataset.i);
+    if (e.shiftKey) toggleSelect(i);
+    else if (selectSingle(i)) {
+      state.editingIndex = -1;
+      render();
+      showSelected();
+    }
+  });
   $("overlay").addEventListener("mousedown", onOverlayMouseDown);
   $("overlay").addEventListener("dblclick", onOverlayDblClick);
   $("overlay").addEventListener("contextmenu", onOverlayContextMenu);
@@ -169,6 +196,7 @@ export function bindEvents() {
 
   window.addEventListener("keydown", e => {
     if (e.key === "Escape") {
+      if (!commitPendingEditor()) return;
       state.editingIndex = -1;
       hideContextMenu();
       render();
@@ -178,14 +206,14 @@ export function bindEvents() {
     if (e.key === "Delete" && state.selected.size && !["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName)) deleteSelected();
     if ((e.ctrlKey || e.metaKey) && e.key === "s" && e.shiftKey) { e.preventDefault(); exportGodotScene(); }
     else if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); exportJSON(); }
-    if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
-    if ((e.ctrlKey || e.metaKey) && (e.key === "y" || (e.key === "z" && e.shiftKey))) { e.preventDefault(); redo(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) { e.preventDefault(); undoPending(); }
+    if ((e.ctrlKey || e.metaKey) && (e.key === "y" || (e.key === "z" && e.shiftKey))) { e.preventDefault(); redoPending(); }
   });
 
   $("applyBtn").onclick = apply;
   ["description", "x", "y", "w", "h", "shapeType", "spx", "spy", "sw", "sh", "sr", "cr", "cht", "notes"]
-    .forEach(id => $(id).addEventListener("input", () => markDirty()));
-  $("name").addEventListener("input", () => { markDirty(); updateNameValidation(); });
+    .forEach(id => $(id).addEventListener("input", () => { state.formDirty = true; markDirty(); }));
+  $("name").addEventListener("input", () => { state.formDirty = true; markDirty(); updateNameValidation(); });
   $("shapeType").addEventListener("change", applyCollisionRegen);
   $("regenCollisionBtn").onclick = applyCollisionRegen;
   $("clearCollisionBtn").onclick = clearCollision;
@@ -201,8 +229,8 @@ export function bindEvents() {
     e.target.value = "";
   };
   $("segBtn").onclick = () => autoSegment();
-  $("undoBtn").onclick = undo;
-  $("redoBtn").onclick = redo;
+  $("undoBtn").onclick = undoPending;
+  $("redoBtn").onclick = redoPending;
   $("mergeBtn").onclick = mergeSelected;
   $("exportBtn").onclick = exportJSON;
   $("exportGodotBtn").onclick = exportGodotScene;

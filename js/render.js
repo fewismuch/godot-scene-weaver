@@ -4,7 +4,19 @@ import { state } from "./state.js";
 import { clamp, esc, displayName } from "./utils.js";
 import { findNameConflict } from "./validation.js";
 import { rectOf, applyCollisionDOM, collisionSummary } from "./model.js";
-import { updateMergeButton, current, toggleSelect, selectSingle } from "./selection.js";
+
+function current() { return state.primary >= 0 ? state.objects[state.primary] : null; }
+
+export function updateMergeButton() {
+  const n = state.selected.size;
+  $("mergeBtn").disabled = n < 2;
+  $("multiHint").style.display = n > 1 ? "block" : "none";
+  $("multiCount").textContent = n;
+  if (n > 1) {
+    $("editor").style.display = "none";
+    $("noSelection").style.display = "none";
+  }
+}
 
 export function setZoom(z) {
   state.zoom = clamp(z, .15, 12);
@@ -91,21 +103,6 @@ export function renderList() {
       <div><div class="title">${esc(displayName(v.o))}</div><div class="desc">${esc(v.o.description) || "无描述"}</div></div>
     </div>`;
   }).join("") : `<div class="empty">暂无区域</div>`;
-  [...$("list").children].forEach(e => {
-    if (!e.dataset.i) return;
-    e.onmousedown = ev => { if (ev.shiftKey) { ev.preventDefault(); window.getSelection()?.removeAllRanges(); } };
-    e.onclick = ev => {
-      ev.preventDefault();
-      const i = +e.dataset.i;
-      if (ev.shiftKey) toggleSelect(i);
-      else {
-        selectSingle(i);
-        state.editingIndex = -1;
-        render();
-        showSelected();
-      }
-    };
-  });
 }
 
 export function syncShapeFields() {
@@ -141,6 +138,7 @@ export function syncShapeFields() {
 }
 
 export function showSelected() {
+  state.formDirty = false;
   const multi = state.selected.size > 1, o = multi ? null : current(), has = !!o && !multi;
   $("noSelection").style.display = (!has && !multi) ? "block" : "none";
   $("editor").style.display = has ? "block" : "none";

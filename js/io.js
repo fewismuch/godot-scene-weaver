@@ -1,13 +1,16 @@
 import { $ } from "./dom.js";
 import { state } from "./state.js";
-import { markDirty } from "./utils.js";
+import { hideProgress, markDirty } from "./utils.js";
 import { normalize } from "./model.js";
 import { resetHistory } from "./history.js";
 import { autoSegment } from "./segment.js";
 import { render, showSelected, fit } from "./render.js";
 import { syncGodotAtlasPath } from "./godot-export.js";
+import { commitPendingEditor } from "./editor.js";
 
 export function loadJSON(data) {
+  state.documentVersion++;
+  hideProgress();
   state.objects = (data.objects || []).map(normalize);
   state.imageName = data.meta?.atlas || data.meta?.image || state.imageName;
   syncGodotAtlasPath();
@@ -21,22 +24,30 @@ export function loadJSON(data) {
 }
 
 export function loadImageFile(file) {
-  state.imageName = file.name;
-  syncGodotAtlasPath();
+  const version = ++state.documentVersion;
   const im = new Image();
   im.onload = async () => {
+    if (version !== state.documentVersion) { URL.revokeObjectURL(im.src); return; }
+    if (state.imageURL) URL.revokeObjectURL(state.imageURL);
+    state.imageURL = im.src;
+    state.imageName = file.name;
+    syncGodotAtlasPath();
     state.img = im;
     state.imgData = null;
     $("segBtn").disabled = false;
     render();
     fit();
-    await autoSegment();
-    resetHistory();
+    if (await autoSegment() && version === state.documentVersion) resetHistory();
+  };
+  im.onerror = () => {
+    URL.revokeObjectURL(im.src);
+    if (version === state.documentVersion) hideProgress();
   };
   im.src = URL.createObjectURL(file);
 }
 
 export function exportJSON() {
+  if (!commitPendingEditor()) return;
   const data = {
     meta: {
       image_resolution: state.img ? { width: state.img.width, height: state.img.height } : { width: 0, height: 0 },

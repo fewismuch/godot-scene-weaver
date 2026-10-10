@@ -2,8 +2,15 @@ import { $ } from "./dom.js";
 import { MAX_HISTORY } from "./constants.js";
 import { state } from "./state.js";
 import { markDirty, snapshot } from "./utils.js";
-import { normalizeSelection } from "./selection.js";
 import { render, showSelected } from "./render.js";
+
+function normalizeSelection() {
+  state.selected = new Set([...state.selected].filter(i => i >= 0 && i < state.objects.length));
+  if (state.primary >= state.objects.length) state.primary = state.objects.length - 1;
+  if (state.editingIndex >= state.objects.length) state.editingIndex = -1;
+  if (state.selected.size === 0 && state.objects.length) state.selected.add(state.primary >= 0 ? state.primary : 0);
+  if (state.selected.size && !state.selected.has(state.primary)) state.primary = [...state.selected][0];
+}
 
 export function resetHistory() {
   state.history = [snapshot()];
